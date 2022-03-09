@@ -1,76 +1,72 @@
 #!/bin/bash
+CUDA_INSTALL_PATH=/shared/cuda
+CRYOSPARC_INSTALL_PATH=/shared/cryosparc
+LICENSE_ID=$1
+yum -y update
 
-. "/etc/parallelcluster/cfnconfig"
+# Install CUDA Toolkit (11.3 for CryoSPARC)
+mkdir -p ${CUDA_INSTALL_PATH}
+cd ${CUDA_INSTALL_PATH}
+wget https://developer.download.nvidia.com/compute/cuda/11.3.0/local_installers/cuda_11.3.0_465.19.01_linux.run
+sh cuda_11.3.0_465.19.01_linux.run --defaultroot=/shared/cuda --toolkit --toolkitpath=${CUDA_INSTALL_PATH}/cuda-11.3 --samples --silent
+rm cuda_11.3.0_465.19.01_linux.run
 
-if [ "${cfn_node_type}" == "MasterServer" ]; then
-   CUDA_INSTALL_PATH=/shared/cuda
-   CRYOSPARC_INSTALL_PATH=/shared/cryosparc
-   LICENSE_ID=$2
-   yum -y update
-
-   # Install CUDA Toolkit (11.3 for CryoSPARC)
-   mkdir -p ${CUDA_INSTALL_PATH}
-   cd ${CUDA_INSTALL_PATH}
-   wget https://developer.download.nvidia.com/compute/cuda/11.3.0/local_installers/cuda_11.3.0_465.19.01_linux.run
-   sh cuda_11.3.0_465.19.01_linux.run --defaultroot=/shared/cuda --toolkit --toolkitpath=${CUDA_INSTALL_PATH}/cuda-11.3 --samples --silent
-   rm cuda_11.3.0_465.19.01_linux.run
-
-   # Add CUDA to the path
-   cat > /etc/profile.d/cuda.sh << 'EOF'
+# Add CUDA to the path
+cat > /etc/profile.d/cuda.sh << 'EOF'
 PATH=$PATH:@CUDA_INSTALL_PATH@/cuda-11.3/bin
 EOF
-   sed -i "s|@CUDA_INSTALL_PATH@|${CUDA_INSTALL_PATH}|g" /etc/profile.d/cuda.sh
-   . /etc/profile.d/cuda.sh
+sed -i "s|@CUDA_INSTALL_PATH@|${CUDA_INSTALL_PATH}|g" /etc/profile.d/cuda.sh
+. /etc/profile.d/cuda.sh
 
-   # Download cryoSPARC
-   mkdir -p ${CRYOSPARC_INSTALL_PATH}
-   cd ${CRYOSPARC_INSTALL_PATH}
-   curl -L https://get.cryosparc.com/download/master-latest/${LICENSE_ID} -o cryosparc_master.tar.gz
-   curl -L https://get.cryosparc.com/download/worker-latest/${LICENSE_ID} -o cryosparc_worker.tar.gz
+# Download cryoSPARC
+mkdir -p ${CRYOSPARC_INSTALL_PATH}
+cd ${CRYOSPARC_INSTALL_PATH}
+curl -L https://get.cryosparc.com/download/master-latest/${LICENSE_ID} -o cryosparc_master.tar.gz
+curl -L https://get.cryosparc.com/download/worker-latest/${LICENSE_ID} -o cryosparc_worker.tar.gz
 
-   # Install master process
-   tar -xf cryosparc_master.tar.gz
-   cd cryosparc_master
-   ./install.sh --license ${LICENSE_ID} \
-      --hostname ${HOSTNAME} \
-      --dbpath ${CRYOSPARC_INSTALL_PATH}/cryosparc_db \
-      --port 45000 \
-      --allowroot \
-      --yes
+# Install master process
+tar -xf cryosparc_master.tar.gz
+cd cryosparc_master
+./install.sh --license ${LICENSE_ID} \
+   --hostname ${HOSTNAME} \
+   --dbpath ${CRYOSPARC_INSTALL_PATH}/cryosparc_db \
+   --port 45000 \
+   --allowroot \
+   --yes
 
-   # Start cryoSPARC master package
-   ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm start
+# Start cryoSPARC master package
+${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm start
 
-   # Add CryoSPARC to the path
-   cat > /etc/profile.d/cryosparc.sh << 'EOF'
+# Add CryoSPARC to the path
+cat > /etc/profile.d/cryosparc.sh << 'EOF'
 PATH=$PATH:@CRYOSPARC_INSTALL_PATH@/cryosparc_master/bin
 EOF
-   sed -i "s|@CRYOSPARC_INSTALL_PATH@|${CRYOSPARC_INSTALL_PATH}|g" /etc/profile.d/cryosparc.sh
-   . /etc/profile.d/cryosparc.sh
+sed -i "s|@CRYOSPARC_INSTALL_PATH@|${CRYOSPARC_INSTALL_PATH}|g" /etc/profile.d/cryosparc.sh
+. /etc/profile.d/cryosparc.sh
 
 
-   echo "export CRYOSPARC_FORCE_USER=true" >> ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/config.sh
-   echo "export CRYOSPARC_FORCE_HOSTNAME=true" >> ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/config.sh
+echo "export CRYOSPARC_FORCE_USER=true" >> ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/config.sh
+echo "export CRYOSPARC_FORCE_HOSTNAME=true" >> ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/config.sh
 
-   # Install cryoSPARC work package
-   cd ${CRYOSPARC_INSTALL_PATH}
-   tar -xf cryosparc_worker.tar.gz
-   cd cryosparc_worker
-   ./install.sh --license ${LICENSE_ID} \
-      --cudapath ${CUDA_INSTALL_PATH}/cuda-11.3 \
-      --yes
+# Install cryoSPARC work package
+cd ${CRYOSPARC_INSTALL_PATH}
+tar -xf cryosparc_worker.tar.gz
+cd cryosparc_worker
+./install.sh --license ${LICENSE_ID} \
+   --cudapath ${CUDA_INSTALL_PATH}/cuda-11.3 \
+   --yes
 
-   rm ${CRYOSPARC_INSTALL_PATH}/*.tar.gz
-   chown -R ec2-user: /shared/cryosparc
+rm ${CRYOSPARC_INSTALL_PATH}/*.tar.gz
+chown -R ec2-user: /shared/cryosparc
 
-   # Start cluster
-   /bin/su -c "${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm start" - ec2-user
+# Start cluster
+/bin/su -c "${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm start" - ec2-user
 
-      # Create cluster config files for each GPU partition in SLURM
-   for PARTITION in gpu-large gpu-med gpu-small 
-   do
+   # Create cluster config files for each GPU partition in SLURM
+for PARTITION in gpu-large gpu-med gpu-small 
+do
 
-   cat > ${CRYOSPARC_INSTALL_PATH}/cluster_info.json <<EOF
+cat > ${CRYOSPARC_INSTALL_PATH}/cluster_info.json <<EOF
 {
 "qdel_cmd_tpl": "scancel {{ cluster_job_id }}",
 "worker_bin_path": "$CRYOSPARC_INSTALL_PATH/cryosparc_worker/bin/cryosparcw",
@@ -84,7 +80,7 @@ EOF
 }
 EOF
 
-   cat > ${CRYOSPARC_INSTALL_PATH}/cluster_script.sh <<EOF
+cat > ${CRYOSPARC_INSTALL_PATH}/cluster_script.sh <<EOF
 #!/bin/bash
 #SBATCH --job-name=cryosparc_{{ project_uid }}_{{ job_uid }}
 #SBATCH --output={{ job_log_path_abs }}
@@ -97,12 +93,11 @@ EOF
 {{ run_cmd }}
 EOF
 
-   # Connect worker nodes to cluster
-   /bin/su -c "cd ${CRYOSPARC_INSTALL_PATH} && ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm cluster connect" - ec2-user
+# Connect worker nodes to cluster
+/bin/su -c "cd ${CRYOSPARC_INSTALL_PATH} && ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm cluster connect" - ec2-user
 
-   done
+done
 
-   # Restart master
-   /bin/su -c "cd ${CRYOSPARC_INSTALL_PATH} && ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm restart" - ec2-user
+# Restart master
+/bin/su -c "cd ${CRYOSPARC_INSTALL_PATH} && ${CRYOSPARC_INSTALL_PATH}/cryosparc_master/bin/cryosparcm restart" - ec2-user
 
-fi

@@ -1,15 +1,3 @@
-# Volume encrypted defaults to True in AWS ParallelCluster version 3 while it defaults to False in AWS ParallelCluster version 2.
-# In AWS ParallelCluster version 3, access to the Instance Metadata Service(IMDS) on the head node is restricted to the cluster administrator. If additional users required access to IMDS, you can set HeadNode/Imds/Secured to False.
-# vpc_id = @VPC_ID@ is ignored
-# update_check = true is ignored
-# ssh = ssh {CFN_USER}@{MASTER_IP} {ARGS} is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
-# initial_count = 0 is ignored
 Region: '@AWS_REGION@'
 Image:
   Os: alinux2
@@ -40,7 +28,7 @@ Monitoring:
 HeadNode:
   InstanceType: c5n.9xlarge
   Networking:
-    SubnetId: '@MASTER_SUBNET_ID@'
+    SubnetId: '@HEADNODE_SUBNET_ID@'
     ElasticIp: false
   Ssh:
     KeyName: '@AWS_KEY@'

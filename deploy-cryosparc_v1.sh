@@ -26,28 +26,25 @@ aws cloudformation deploy --region ${AWS_REGION} \
                           --parameter-override AvailabilityZone=${COMPUTE_AZ}
 aws cloudformation wait stack-create-complete --stack-name ${VPC_STACK_NAME} --region ${AWS_REGION}
 
-# Get VPC and Subnet IDs
-VPC_ID=$(aws cloudformation describe-stacks --region ${AWS_REGION} --stack-name ${VPC_STACK_NAME} --query "Stacks[0].Outputs[?OutputKey=='VpcId'].OutputValue" --output text)
-echo "VPC ID: ${VPC_ID}"
+# Get Subnet IDs for HeadNode and ComputeNodes
 COMPUTE_SUBNET_ID=$(aws cloudformation describe-stacks --region ${AWS_REGION} --stack-name ${VPC_STACK_NAME} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnetId'].OutputValue" --output text)
 echo "Compute Subnet ID: ${COMPUTE_SUBNET_ID}"
-MASTER_SUBNET_ID=$(aws cloudformation describe-stacks --region ${AWS_REGION} --stack-name ${VPC_STACK_NAME} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetId'].OutputValue" --output text)
-echo "Master Subnet ID: ${MASTER_SUBNET_ID}"
+HEADNODE_SUBNET_ID=$(aws cloudformation describe-stacks --region ${AWS_REGION} --stack-name ${VPC_STACK_NAME} --query "Stacks[0].Outputs[?OutputKey=='PublicSubnetId'].OutputValue" --output text)
+echo "HeadNode Subnet ID: ${HEADNODE_SUBNET_ID}"
 
-# Edit add VPC and Subnet IDs to ParallelCluster configuration
+# Edit add Region and Subnet IDs to ParallelCluster configuration
 cp cryosparc-pcluster.config.template cryosparc-pcluster.config
 sed -i "s|@AWS_REGION@|${AWS_REGION}|g" cryosparc-pcluster.config
 sed -i "s|@AWS_KEY@|${AWS_KEY}|g" cryosparc-pcluster.config
-sed -i "s|@VPC_ID@|${VPC_ID}|g" cryosparc-pcluster.config
 sed -i "s|@COMPUTE_SUBNET_ID@|${COMPUTE_SUBNET_ID}|g" cryosparc-pcluster.config
-sed -i "s|@MASTER_SUBNET_ID@|${MASTER_SUBNET_ID}|g" cryosparc-pcluster.config
+sed -i "s|@HEADNODE_SUBNET_ID@|${HEADNODE_SUBNET_ID}|g" cryosparc-pcluster.config
 sed -i "s|@S3_DATA_BUCKET@|${DATA_BUCKET_NAME}|g" cryosparc-pcluster.config
 sed -i "s|@CRYOSPARC_LICENSE_ID@|${CRYOSPARC_LICENSE_ID}|g" cryosparc-pcluster.config
 
 # Create ParallelCluster
 pcluster create --region ${AWS_REGION} -nr -c cryosparc-pcluster.config ${STACK_NAME}
 
-CRYOSPARC_HEADNODE_IPADDR=$(aws ec2 describe-instances --region $AWS_REGION --filters Name=tag:ClusterName,Values=${STACK_NAME} Name=tag:Name,Values=Master --query 'Reservations[].Instances[].NetworkInterfaces[].Association[].PublicIp' --output text)
+CRYOSPARC_HEADNODE_IPADDR=$(aws ec2 describe-instances --region $AWS_REGION --filters Name=tag:ClusterName,Values=${STACK_NAME} Name=tag:Name,Values=HeadNode --query 'Reservations[].Instances[].NetworkInterfaces[].Association[].PublicIp' --output text)
 echo ""
 echo ""
 echo "CryoSPARC cluster configuration complete. You can login using the following command:"
